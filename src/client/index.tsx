@@ -14,22 +14,25 @@
  * follows the shell's zh/en preference. Styling uses theme CSS variables with
  * fallbacks, so the toast matches the shell's look without shipping a stylesheet.
  */
-import * as React from 'react';
-import type { ClientContext, SessionListState } from '@deepseek-ai/dsh-client-runtime';
-import type { SnapshotSelectorHook, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots';
-import { en, zh } from './locales';
+import * as React from 'react'
+import type { ClientContext, SessionListState } from '@deepseek-ai/dsh-client-runtime/client'
+import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { SnapshotSelectorHook, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import { en, zh } from './locales.ts'
 
-const SOUND_KEY = 'dsh.completion-notifier.sound';
-const TOAST_MS = 6000;
+const SOUND_KEY = 'dsh.completion-notifier.sound'
+const TOAST_MS = 6000
 
 /** Monotonic id so concurrent notices keep stable React keys. */
-let noticeSeq = 0;
+let noticeSeq = 0
 
 function isSoundEnabled(): boolean {
   try {
-    return window.localStorage.getItem(SOUND_KEY) !== 'off';
+    return window.localStorage.getItem(SOUND_KEY) !== 'off'
   } catch {
-    return true;
+    return true
   }
 }
 
@@ -41,99 +44,97 @@ function isSoundEnabled(): boolean {
 function playChime(): void {
   try {
     const w = window as unknown as {
-      AudioContext?: typeof AudioContext;
-      webkitAudioContext?: typeof AudioContext;
-    };
-    const Ctor = w.AudioContext ?? w.webkitAudioContext;
-    if (!Ctor) return;
-    const ac = new Ctor();
-    const now = ac.currentTime;
+      AudioContext?: typeof AudioContext
+      webkitAudioContext?: typeof AudioContext
+    }
+    const Ctor = w.AudioContext ?? w.webkitAudioContext
+    if (!Ctor) return
+    const ac = new Ctor()
+    const now = ac.currentTime
     const notes: ReadonlyArray<{ freq: number; at: number }> = [
       { freq: 880, at: 0 },
       { freq: 1174.66, at: 0.14 },
-    ];
+    ]
     for (const note of notes) {
-      const osc = ac.createOscillator();
-      const gain = ac.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = note.freq;
-      gain.gain.setValueAtTime(0.0001, now + note.at);
-      gain.gain.exponentialRampToValueAtTime(0.28, now + note.at + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + note.at + 0.6);
-      osc.connect(gain);
-      gain.connect(ac.destination);
-      osc.start(now + note.at);
-      osc.stop(now + note.at + 0.65);
+      const osc = ac.createOscillator()
+      const gain = ac.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = note.freq
+      gain.gain.setValueAtTime(0.0001, now + note.at)
+      gain.gain.exponentialRampToValueAtTime(0.28, now + note.at + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + note.at + 0.6)
+      osc.connect(gain)
+      gain.connect(ac.destination)
+      osc.start(now + note.at)
+      osc.stop(now + note.at + 0.65)
     }
     window.setTimeout(() => {
       try {
-        void ac.close();
+        void ac.close()
       } catch {
         // already closed
       }
-    }, 1400);
+    }, 1400)
   } catch {
     // no-op
   }
 }
 
 interface Notice {
-  key: number;
-  title: string;
-  at: number;
+  key: number
+  title: string
+  at: number
 }
 
 interface ToastProps {
-  useSessions: SnapshotSelectorHook<SessionListState>;
-  t: TranslateNS<'completion-notifier'>;
+  useSessions: SnapshotSelectorHook<SessionListState>
+  t: TranslateNS<'completion-notifier'>
 }
 
 function CompletionToastLayer({ useSessions, t }: ToastProps): React.ReactNode {
-  const byId = useSessions((state) => state.byId);
-  const prevRunning = React.useRef<Map<string, boolean>>(new Map());
-  const [notices, setNotices] = React.useState<Notice[]>([]);
+  const byId = useSessions((state) => state.byId)
+  const prevRunning = React.useRef<Map<string, boolean>>(new Map())
+  const [notices, setNotices] = React.useState<Notice[]>([])
 
   React.useEffect(() => {
-    const current = new Map<string, boolean>();
+    const current = new Map<string, boolean>()
+    const fired: Notice[] = []
     for (const [id, summary] of Object.entries(byId)) {
-      current.set(id, summary.running);
-    }
-
-    const fired: Notice[] = [];
-    for (const [id, running] of current) {
-      const was = prevRunning.current.get(id) ?? false;
+      const running = summary.running
+      current.set(id, running)
+      const was = prevRunning.current.get(id) ?? false
       if (was && !running) {
         fired.push({
           key: noticeSeq++,
-          title: byId[id]?.displayTitle ?? id,
+          title: summary.displayTitle,
           at: Date.now(),
-        });
+        })
       }
     }
     // Seed / advance the previous-bit map. Doing this at the end also makes
     // React StrictMode's dev double-invoke of the effect idempotent.
-    prevRunning.current = current;
+    prevRunning.current = current
 
     if (fired.length > 0) {
-      setNotices((list) => [...list, ...fired]);
+      setNotices((list) => [...list, ...fired])
       if (isSoundEnabled()) {
-        for (let i = 0; i < Math.min(fired.length, 3); i += 1) playChime();
+        for (let i = 0; i < Math.min(fired.length, 3); i += 1) playChime()
       }
     }
-  }, [byId]);
+  }, [byId])
 
   React.useEffect(() => {
-    if (notices.length === 0) return;
+    if (notices.length === 0) return
     const timer = window.setInterval(() => {
       setNotices((list) => {
-        const kept = list.filter((notice) => Date.now() - notice.at < TOAST_MS);
-        return kept.length === list.length ? list : kept;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [notices.length]);
+        const kept = list.filter((notice) => Date.now() - notice.at < TOAST_MS)
+        return kept.length === list.length ? list : kept
+      })
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [notices.length])
 
-  if (notices.length === 0) return null;
+  if (notices.length === 0) return null
 
   return (
     <div style={stackStyle} role="region" aria-label={t('toast.title')}>
@@ -144,11 +145,11 @@ function CompletionToastLayer({ useSessions, t }: ToastProps): React.ReactNode {
         </div>
       ))}
     </div>
-  );
+  )
 }
 
 interface ToggleProps {
-  t: TranslateNS<'completion-notifier'>;
+  t: TranslateNS<'completion-notifier'>
 }
 
 /**
@@ -157,18 +158,18 @@ interface ToggleProps {
  * simply never fires and the row is omitted — the toast still works.
  */
 function SoundToggleRow({ t }: ToggleProps): React.ReactNode {
-  const [enabled, setEnabled] = React.useState<boolean>(isSoundEnabled);
+  const [enabled, setEnabled] = React.useState<boolean>(isSoundEnabled)
   const onToggle = React.useCallback(() => {
     setEnabled((current) => {
-      const next = !current;
+      const next = !current
       try {
-        window.localStorage.setItem(SOUND_KEY, next ? 'on' : 'off');
+        window.localStorage.setItem(SOUND_KEY, next ? 'on' : 'off')
       } catch {
         // storage unavailable — keep the in-memory state only
       }
-      return next;
-    });
-  }, []);
+      return next
+    })
+  }, [])
 
   return (
     <div style={rowStyle}>
@@ -187,7 +188,7 @@ function SoundToggleRow({ t }: ToggleProps): React.ReactNode {
         <span style={switchKnobStyle(enabled)} />
       </button>
     </div>
-  );
+  )
 }
 
 const stackStyle: React.CSSProperties = {
@@ -200,7 +201,7 @@ const stackStyle: React.CSSProperties = {
   gap: 10,
   maxWidth: 340,
   pointerEvents: 'none',
-};
+}
 
 const toastStyle: React.CSSProperties = {
   pointerEvents: 'auto',
@@ -213,20 +214,20 @@ const toastStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
-};
+}
 
 const titleStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   lineHeight: '18px',
-};
+}
 
 const bodyStyle: React.CSSProperties = {
   fontSize: 12,
   lineHeight: '18px',
   opacity: 0.75,
   overflowWrap: 'anywhere',
-};
+}
 
 const rowStyle: React.CSSProperties = {
   display: 'flex',
@@ -234,26 +235,26 @@ const rowStyle: React.CSSProperties = {
   justifyContent: 'space-between',
   gap: 12,
   padding: '10px 0',
-};
+}
 
 const rowTextStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 2,
   minWidth: 0,
-};
+}
 
 const rowLabelStyle: React.CSSProperties = {
   fontSize: 13,
   lineHeight: '18px',
   color: 'var(--dsw-alias-label-primary, #f5f7fa)',
-};
+}
 
 const rowDescStyle: React.CSSProperties = {
   fontSize: 12,
   lineHeight: '16px',
   color: 'var(--dsw-alias-label-tertiary, #9aa1ab)',
-};
+}
 
 const switchStyle: React.CSSProperties = {
   position: 'relative',
@@ -265,7 +266,7 @@ const switchStyle: React.CSSProperties = {
   background: 'var(--dsw-alias-fill-l2, #3a3f47)',
   padding: 0,
   flex: 'none',
-};
+}
 
 const switchKnobStyle = (on: boolean): React.CSSProperties => ({
   position: 'absolute',
@@ -276,10 +277,10 @@ const switchKnobStyle = (on: boolean): React.CSSProperties => ({
   borderRadius: '50%',
   background: on ? 'var(--dsw-alias-accent, #4d6bfe)' : 'var(--dsw-alias-label-tertiary, #9aa1ab)',
   transition: 'left .12s ease, background .12s ease',
-});
+})
 
 /** Required services: the slot registry and the locale registry. */
-export const inject: string[] = ['slots', 'locale'];
+export const inject: string[] = ['slots', 'locale']
 
 /**
  * Client plugin body: register the dictionaries, then contribute the toast
@@ -291,7 +292,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(
     () => ctx.locale.register('completion-notifier', { zh, en }),
     'completion-notifier: dictionaries',
-  );
+  )
 
   ctx.slots.inject('shell.overlay', () =>
     ctx.slots.register(
@@ -303,7 +304,7 @@ export function apply(ctx: ClientContext): void {
       },
       CompletionToastLayer,
     ),
-  );
+  )
 
   ctx.slots.inject('settings.general.item', () =>
     ctx.slots.register(
@@ -315,5 +316,5 @@ export function apply(ctx: ClientContext): void {
       },
       SoundToggleRow,
     ),
-  );
+  )
 }

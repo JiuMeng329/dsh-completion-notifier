@@ -17,11 +17,33 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) **cl
 
 > 前置：已安装 DSH，且有一个 web profile（`dsh web`）。
 
-### 方式一：手动安装（推荐，开箱即用）
+### 方式一：从 npm 安装（推荐）
 
-仓库里已带预构建产物 `lib/`，无需再编译。
+```sh
+# 官方包管理器（转发到 profile 里的 pnpm，从 npm 拉取）
+dsh plugin --profile web add dsh-completion-notifier
+```
 
-1. 把本仓库放到 DSH 的 profile 依赖目录：
+然后在 profile 的 patch 层加入一行。编辑 `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml`：
+
+```yaml
+- insert:
+    - id: completion-notifier
+      name: dsh-completion-notifier
+```
+
+最后重启：
+
+```powershell
+dsh web
+```
+
+> 也可以直接用 npm / pnpm 装到 profile 依赖目录：
+> `npm install dsh-completion-notifier` 或 `pnpm add dsh-completion-notifier`（在 profile 目录内执行）。
+
+### 方式二：手动安装（本地包）
+
+1. 把本仓库的 `package.json` 与 `lib/` 放到 DSH 的 profile 依赖目录：
 
 ```powershell
 # Windows 默认 DSH_HOME = %USERPROFILE%\.dsh
@@ -30,27 +52,7 @@ New-Item -ItemType Directory -Force -Path $dst | Out-Null
 Copy-Item package.json, lib $dst -Recurse -Force
 ```
 
-2. 在 profile 的 patch 层加入一行。编辑 `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml`：
-
-```yaml
-- insert:
-    - id: completion-notifier
-      name: dsh-completion-notifier
-```
-
-3. 重启：
-
-```powershell
-dsh web
-```
-
-### 方式二：dsh plugin（官方包管理器）
-
-```sh
-dsh plugin --profile web add dsh-completion-notifier
-```
-
-然后再按上面的方式把那一行写进 `cordis.patch.yml`，并重启。
+2. 按上面的方式把那一行写进 `cordis.patch.yml`，然后重启 `dsh web`。
 
 ## 使用
 
@@ -67,27 +69,27 @@ DSH 运行时的 `sessions` 列表里，每个会话带一个 `running` 布尔�
 
 ## 开发 / 构建
 
-源码用 TypeScript + React（JSX），构建用 `tsdown`。推荐在 deepseek-harness 仓库内开发（共享构建工具会生成 `window.__ModuleLoader__.load` 包裹与 `lib/types/` 布局）：
+源码用 TypeScript + React（JSX）。构建依赖 deepseek-harness 仓库的共享工具链（会生成 `window.__ModuleLoader__.load` 包裹与 `lib/types/` 布局），因此推荐在仓库内开发：
 
 ```sh
 git clone https://github.com/deepseek-ai/deepseek-harness.git
-# 把本目录放到 packages/client/dsh-completion-notifier/
+# 把本包的 src/ 放到 packages/client/dsh-completion-notifier/（含 tsconfig.json、tsdown.config.ts）
 pnpm install
-pnpm build
+pnpm run build:lib          # 全量构建（首次）；之后可用增量构建
 ```
 
-关键不变量（自建构建时需满足）见 `tsdown.config.ts` 注释与构建说明。
+构建产物在 `packages/client/dsh-completion-notifier/lib/`，把 `lib/` 同步回本仓库即可发布。
 
 ## 目录结构
 
 ```
 dsh-completion-notifier/
-├── package.json          # dsh.client 清单 + exports["./client"]
-├── tsdown.config.ts      # 构建配置
+├── package.json          # dsh.client 清单 + exports["./client"] + exports["./invariant"]
 ├── LICENSE               # MIT
-├── lib/                  # 预构建产物（index.js / client.js）
+├── lib/                  # 构建产物（index.js / invariant.js / client.js / types/）
 └── src/
     ├── index.ts          # host 半边（空 apply）
+    ├── invariant.ts      # invariant companion（仓库门禁要求）
     └── client/
         ├── index.tsx     # 完成检测 + Toast + 提示音 + 设置开关
         └── locales.ts    # zh/en 文案

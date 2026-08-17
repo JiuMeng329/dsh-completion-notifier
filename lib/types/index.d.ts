@@ -3,4 +3,5 @@
  * appears in the host Loader (its `dsh.client` bundle is discovered by
  * dsh-client-modules). No host-side behavior.
  */
-export function apply(): void {}
+export declare function apply(): void;
+//# sourceMappingURL=index.d.ts.map

@@ -1,4 +1,6 @@
 node_modules/
 *.log
+*.tsbuildinfo
+*.tgz
 .DS_Store
 Thumbs.db

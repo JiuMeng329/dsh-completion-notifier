@@ -9,11 +9,11 @@ export type CompletionNotifierKey =
   | 'toast.title'
   | 'toast.body'
   | 'settings.sound.label'
-  | 'settings.sound.description';
+  | 'settings.sound.description'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
-    'completion-notifier': CompletionNotifierKey;
+    'completion-notifier': CompletionNotifierKey
   }
 }
 
@@ -22,11 +22,11 @@ export const zh: Record<CompletionNotifierKey, string> = {
   'toast.body': '「{title}」的对话已完成',
   'settings.sound.label': '完成提示音',
   'settings.sound.description': '对话完成时播放提示音',
-};
+}
 
 export const en: Record<CompletionNotifierKey, string> = {
   'toast.title': 'Task complete',
   'toast.body': 'Conversation "{title}" finished',
   'settings.sound.label': 'Completion sound',
   'settings.sound.description': 'Play a sound when a conversation finishes',
-};
+}
